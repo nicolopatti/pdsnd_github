@@ -25,6 +25,16 @@ Files used:
     •   new_york_city (1).csv
     •   washington (1).csv
 
+### Technologies Used
+This project utilizes the following technologies:
+
+    •   **Python 3.x**: The main programming language for the analysis.
+    •   **Pandas**: A Python library used for data manipulation and analysis.
+    •   **NumPy**: For numerical operations and data handling.
+    •   **Jupyter Notebook**: For exploratory data analysis and prototyping.
+    •   **Git**: For version control and collaboration.
+
+
 ### Credits
 This project was made possible thanks to:
 - Motivate (https://motivateco.com/): For providing the dataset and inspiration.
