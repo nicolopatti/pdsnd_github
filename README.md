@@ -18,6 +18,25 @@ This project leverages such data to:
 	•	Compare bike-sharing system behavior in Chicago, New York City, and Washington, DC.
 	•	Provide insights into trends and user behavior that can be useful for stakeholders and city planners.
 
+### Usage Example
+Once the project is set up, you can run the script to analyze data interactively. For example:
+    1. **Select a city:** The program will prompt you to choose a city (Chicago, New York City, or Washington).
+    2. **Filter the data:** You can filter the data by month or day of the week.
+    3. **Explore statistics:** The program will display key insights, such as:
+        •   The most common times of travel.
+        •   The most popular stations and trips.
+        •   Total and average trip duration.
+        •   User statistics, including counts by user type, gender, and birth year.
+
+Example output for Chicago:
+Most common month: June
+Most common day of the week: Friday
+Most common start hour: 17
+Total travel time: 2,345,678 seconds
+Average travel time: 1,234 seconds
+
+This allows users to gain insights into bike usage trends and patterns interactively.
+
 ### Files used
 Files used:
     •   bikeshare.py
