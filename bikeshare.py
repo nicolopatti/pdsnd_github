@@ -6,45 +6,31 @@ CITY_DATA = { 'chicago': 'chicago.csv',
               'new york city': 'new_york_city.csv',
               'washington': 'washington.csv' }
 
-def get_filters():
-    """
-    Asks user to specify a city, month, and day to analyze.
+def get_valid_input(prompt, valid_options):
+    """Helper function to validate user input."""
+    while True:
+        user_input = input(prompt).lower()
+        if user_input in valid_options:
+            return user_input
+        print(f"Invalid input. Please choose from: {', '.join(valid_options)}")
 
-    Returns:
-        (str) city - name of the city to analyze
-        (str) month - name of the month to filter by, or "all" to apply no month filter
-        (str) day - name of the day of week to filter by, or "all" to apply no day filter
-    """
+def get_filters():
+    """Asks user to specify a city, month, and day to analyze."""
     print('Hello! Let\'s explore some US bikeshare data!')
-    # TO DO: get user input for city (chicago, new york city, washington). HINT: Use a while loop to handle invalid inputs
+
     # Valid inputs
     valid_cities = ['chicago', 'new york city', 'washington']
     valid_months = ['january', 'february', 'march', 'april', 'may', 'june', 'all']
     valid_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'all']
-    
-    while True:
-        city = input('Please enter the city to analyze (chicago, new york city, washington): ').lower()
-        if city in valid_cities:
-            break
-        else:
-            print('Invalid input. Please choose from: chicago, new york city, or washington.')
 
-    # TO DO: get user input for month (all, january, february, ... , june)
-    while True:
-        month = input('Please enter a month to filter by (january to june), or all to apply no filter: ').lower()
-        if month in valid_months:
-            break
-        print('Invalid month. Please choose from january to june, or all.')
+    # Get user inputs using the helper function
+    city = get_valid_input('Please enter the city to analyze (chicago, new york city, washington): ', valid_cities)
+    month = get_valid_input('Please enter the month to filter by (january, february, ..., june, all): ', valid_months)
+    day = get_valid_input('Please enter the day of the week to filter by (monday, tuesday, ..., all): ', valid_days)
 
-    # TO DO: get user input for day of week (all, monday, tuesday, ... sunday)
-    while True:
-        day = input ('Please enter a day of the week to filter by, or all to apply no filter: ').lower()
-        if day in valid_days:
-            break
-        print('Invalid day. Please choose a valid day or all.')
-
-    print('-'*40)
+    print('-' * 40)
     return city, month, day
+
 
 def load_data(city, month, day):
     """
