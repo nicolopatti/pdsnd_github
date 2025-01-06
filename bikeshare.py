@@ -2,9 +2,20 @@ import time
 import pandas as pd
 import numpy as np
 
-CITY_DATA = { 'chicago': 'chicago.csv',
-              'new york city': 'new_york_city.csv',
-              'washington': 'washington.csv' }
+def generate_city_data():
+    """
+    Dynamically generates the CITY_DATA dictionary.
+
+    Returns:
+        dict: A dictionary mapping city names to their respective data file names.
+    """
+    cities = ['chicago', 'new york city', 'washington']
+    files = ['chicago.csv', 'new_york_city.csv', 'washington.csv']
+    return dict(zip(cities, files))
+
+# Use the function to define CITY_DATA
+CITY_DATA = generate_city_data()
+
 
 def get_valid_input(prompt, valid_options):
     """Helper function to validate user input."""
