@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from linkedin_agent.config.settings import load_settings
-from linkedin_agent.core.claude_client import ClaudeClient
+from linkedin_agent.core.ai_client import AIClient as ClaudeClient
 from linkedin_agent.modules.strategy_advisor import StrategyAdvisor
 from linkedin_agent.modules.tracker import ActivityTracker
 from linkedin_agent.scripts.run_daily import _print_weekly_brief, _print_summary
@@ -25,7 +25,7 @@ def main() -> None:
     tracker = ActivityTracker(db_path)
     tracker.init_db()
 
-    claude = ClaudeClient(api_key=settings.anthropic_api_key)
+    claude = ClaudeClient(api_key=settings.gemini_api_key)
     advisor = StrategyAdvisor(settings, claude, tracker)
 
     from rich.console import Console

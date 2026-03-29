@@ -10,7 +10,7 @@ import random
 from pathlib import Path
 
 from linkedin_agent.config.settings import Settings
-from linkedin_agent.core.claude_client import ClaudeClient
+from linkedin_agent.core.ai_client import AIClient as ClaudeClient
 from linkedin_agent.modules.tracker import PostDraft
 
 _PROMPTS_DIR = Path(__file__).parent.parent / "prompts"

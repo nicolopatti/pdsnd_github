@@ -64,7 +64,7 @@ def _make_settings():
             respect_weekends=True,
             headless_browser=True,
         ),
-        anthropic_api_key="test",
+        gemini_api_key="test",
         linkedin_email="test@test.com",
         linkedin_password="test",
     )

@@ -100,7 +100,7 @@ class Settings:
     safety: SafetyConfig
 
     # Secrets (from .env)
-    anthropic_api_key: str = field(default="", repr=False)
+    gemini_api_key: str = field(default="", repr=False)
     linkedin_email: str = field(default="", repr=False)
     linkedin_password: str = field(default="", repr=False)
 
@@ -176,7 +176,7 @@ def load_settings(config_path: Path = _CONFIG_PATH) -> Settings:
     )
 
     # Load secrets from environment
-    settings.anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    settings.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
     settings.linkedin_email = os.environ.get("LINKEDIN_EMAIL", "")
     settings.linkedin_password = os.environ.get("LINKEDIN_PASSWORD", "")
 
@@ -186,8 +186,8 @@ def load_settings(config_path: Path = _CONFIG_PATH) -> Settings:
 
 def _validate(s: Settings) -> None:
     errors: list[str] = []
-    if not s.anthropic_api_key:
-        errors.append("ANTHROPIC_API_KEY not set in .env")
+    if not s.gemini_api_key:
+        errors.append("GEMINI_API_KEY not set in .env (get it free at https://aistudio.google.com)")
     if not s.linkedin_email:
         errors.append("LINKEDIN_EMAIL not set in .env")
     if not s.linkedin_password:

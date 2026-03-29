@@ -31,7 +31,7 @@ from linkedin_agent.automation.comment_publisher import CommentPublisher
 from linkedin_agent.automation.post_publisher import PostPublisher
 from linkedin_agent.automation.reaction_publisher import ReactionPublisher
 from linkedin_agent.config.settings import load_settings
-from linkedin_agent.core.claude_client import ClaudeClient
+from linkedin_agent.core.ai_client import AIClient as ClaudeClient
 from linkedin_agent.core.linkedin_client import LinkedInReader
 from linkedin_agent.modules.content_generator import ContentGenerator
 from linkedin_agent.modules.engagement import EngagementModule
@@ -55,7 +55,7 @@ def main(dry_run: bool = False, plan_only: bool = False) -> None:
     tracker = ActivityTracker(db_path)
     tracker.init_db()
 
-    claude = ClaudeClient(api_key=settings.anthropic_api_key)
+    claude = ClaudeClient(api_key=settings.gemini_api_key)
     content_gen = ContentGenerator(settings, claude)
     advisor = StrategyAdvisor(settings, claude, tracker)
 
