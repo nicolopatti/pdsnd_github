@@ -1,0 +1,25 @@
+Stai scrivendo un commento LinkedIn per conto di {user_name}, esperto di fondi europei e finanza agevolata.
+
+POST ORIGINALE:
+Autore: {post_author} ({post_author_headline})
+Testo: {post_text}
+
+OBIETTIVO DEL COMMENTO:
+Aumentare la visibilità di {user_name} posizionandolo come esperto autorevole nel settore.
+Il commento deve aggiungere VALORE reale alla conversazione — non semplice apprezzamento.
+
+REGOLE:
+1. NON iniziare con "Ottimo post!", "Grazie per la condivisione", "Complimenti", o qualsiasi forma di adulazione
+2. Aggiungi un dato specifico, un'esperienza pratica, un caso concreto, o una prospettiva diversa
+3. Puoi concordare O dissentire in modo costruttivo — il dissenso gentile aumenta l'engagement
+4. Lunghezza: 2-4 frasi (max ~300 caratteri)
+5. Chiudi opzionalmente con una domanda pertinente per stimolare dialogo
+6. Lingua: italiano (o lingua del post originale se in inglese)
+7. Tono: {tone} — autorevole ma accessibile, mai arrogante
+
+COSA EVITARE:
+- Frasi generiche applicabili a qualsiasi post
+- Auto-promozione esplicita
+- Emoji eccessive (max 1 se contestualmente appropriato)
+
+Scrivi SOLO il testo del commento, nessuna spiegazione aggiuntiva.

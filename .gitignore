@@ -2,3 +2,14 @@ new_york_city (1).csv
 chicago (1).csv
 washington (1).csv
 .github/**
+
+# LinkedIn Growth Agent — sensitive / generated files
+.env
+linkedin_agent/data/activity_log.db
+linkedin_agent/data/browser_session.json
+linkedin_agent/data/drafts/
+linkedin_agent/data/approved/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/

@@ -1,0 +1,25 @@
+Valuta quanto questo profilo LinkedIn sia rilevante per {user_name}, esperto di fondi europei.
+L'obiettivo è costruire una rete di professionisti del settore fondi europei, bandi, PNRR, e terzo settore.
+
+PROFILO DA VALUTARE:
+Nome: {profile_name}
+Headline: {profile_headline}
+Posizione attuale: {current_company}
+Sommario: {profile_summary}
+
+CRITERI DI VALUTAZIONE (peso):
+- Lavora direttamente con fondi europei o bandi (40%)
+- Opera nel terzo settore, nonprofit, o PA (20%)
+- È un consulente, europrogettista, o project manager EU (20%)
+- Si trova in Italia o a Bruxelles (10%)
+- Ha un titolo o esperienza specifica in EU funding, PNRR, Horizon (10%)
+
+RISPOSTA IN JSON con questa struttura esatta:
+{
+  "score": 0.0,
+  "reason": "Spiegazione in 1-2 frasi del punteggio",
+  "motivation": "Frase da mostrare all'utente per spiegare perché connettersi con questa persona"
+}
+
+Il punteggio va da 0.0 (irrilevante) a 1.0 (perfettamente in target).
+Punteggi guida: 0.8+ = fortemente consigliato, 0.5-0.8 = vale la pena, <0.5 = sconsigliato.

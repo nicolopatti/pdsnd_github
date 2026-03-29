@@ -1,0 +1,125 @@
+user:
+  name: "Nicolò Patti"
+  linkedin_url: "https://www.linkedin.com/in/nicol%C3%B2-patti/"
+  headline: "Consulente Fondi Europei | PNRR | Terzo Settore"
+  language: "it"           # Primary content language: it / en / mixed
+  tone: "professional_warm" # Options: formal, professional_warm, conversational
+
+niche:
+  primary_keywords:
+    - "fondi europei"
+    - "bandi europei"
+    - "PNRR"
+    - "Horizon Europe"
+    - "LIFE Programme"
+    - "ERASMUS+"
+    - "ESF+"
+    - "FESR"
+    - "terzo settore"
+    - "finanziamenti europei"
+    - "progettazione europea"
+    - "finanza agevolata"
+    - "contributi europei"
+    - "bandi pubblici"
+  hashtags:
+    - "#fondieuropei"
+    - "#PNRR"
+    - "#HorizonEurope"
+    - "#bandipubblici"
+    - "#terzosettore"
+    - "#EUfunding"
+    - "#progettazioneeuropea"
+    - "#finanzaagevolata"
+    - "#bandeuropei"
+    - "#nonprofit"
+
+  # Content pillars with relative weights (higher = more frequent)
+  content_pillars:
+    - name: "Guide pratiche ai bandi"
+      weight: 3
+    - name: "Novità e scadenze PNRR"
+      weight: 3
+    - name: "Casi studio: progetti finanziati"
+      weight: 2
+    - name: "Errori comuni nelle domande"
+      weight: 2
+    - name: "Strumenti e risorse utili"
+      weight: 2
+    - name: "Opportunità per il terzo settore"
+      weight: 2
+    - name: "Dati e tendenze sui finanziamenti europei"
+      weight: 1
+
+  # Content format types (value-first philosophy)
+  content_formats:
+    - name: "guida_pratica"
+      description: "Come fare [X] in N passi — istruzioni azionabili"
+      weight: 3
+    - name: "risorsa"
+      description: "N strumenti/risorse/link utili su un tema specifico"
+      weight: 2
+    - name: "sintesi_bando"
+      description: "Scade il [data]: [bando] — requisiti chiave e per chi è"
+      weight: 3
+    - name: "caso_studio"
+      description: "[Org X] ha ottenuto €Y con [programma] — ecco come"
+      weight: 2
+    - name: "errori_comuni"
+      description: "N errori che fanno perdere punti / fanno rigettare le domande"
+      weight: 2
+    - name: "dato_sorprendente"
+      description: "Statistica inaspettata come hook per una riflessione di valore"
+      weight: 1
+    - name: "checklist"
+      description: "Lista di controllo prima di fare/inviare [X]"
+      weight: 2
+
+target_profiles:
+  job_titles:
+    - "Grant Consultant"
+    - "EU Project Manager"
+    - "Responsabile Europrogettazione"
+    - "Fundraising Manager"
+    - "Direttore Terzo Settore"
+    - "Consulente PNRR"
+    - "Europrogettista"
+    - "Responsabile Fondi Europei"
+    - "Project Manager Europeo"
+    - "Coordinatore Progetti Europei"
+  industries:
+    - "Nonprofit Organization Management"
+    - "Government Administration"
+    - "Management Consulting"
+    - "Education Management"
+    - "Civic and Social Organization"
+  locations:
+    - "Italy"
+    - "Brussels"
+    - "European Union"
+
+# LinkedIn profiles of key voices to monitor (add URNs or public profile slugs)
+influencers_to_monitor:
+  profiles: []  # Example: ["riccardo-rossi-europrogettista", "maria-bianchi-eu-funds"]
+
+activity:
+  daily_limits:
+    posts_per_week: 4           # Max posts per week; agent distributes across weekdays
+    comments_per_day: 5         # Max comments per day
+    reactions_per_day: 10       # Max "consiglia" or "diffondi" per day
+    connection_requests_per_day: 10  # Conservative (LinkedIn soft limit ~20-25/day)
+    profile_views_per_day: 20   # Triggers reciprocal views
+  posting_window:
+    start_hour: 8               # Don't post before 8am (Europe/Rome)
+    end_hour: 18                # Don't post after 6pm
+  best_days_to_post:            # Sorted by engagement for B2B niche
+    - "Tuesday"
+    - "Wednesday"
+    - "Thursday"
+  timezone: "Europe/Rome"
+
+safety:
+  min_delay_between_actions_seconds: 45   # Min sleep between LinkedIn actions
+  max_delay_between_actions_seconds: 120  # Max sleep (random within range)
+  session_max_actions: 15                  # Hard stop after N actions per session
+  respect_weekends: true                   # No automation on Sat/Sun
+  headless_browser: false                  # Set true to run browser without UI
