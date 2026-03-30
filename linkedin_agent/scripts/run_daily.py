@@ -64,9 +64,17 @@ def main(dry_run: bool = False, plan_only: bool = False) -> None:
         engagement = None
         network = None
     else:
-        linkedin_reader = LinkedInReader(settings.linkedin_email, settings.linkedin_password)
-        engagement = EngagementModule(settings, claude, linkedin_reader, tracker)
-        network = NetworkModule(settings, claude, linkedin_reader, tracker)
+        try:
+            linkedin_reader = LinkedInReader(settings.linkedin_email, settings.linkedin_password)
+            engagement = EngagementModule(settings, claude, linkedin_reader, tracker)
+            network = NetworkModule(settings, claude, linkedin_reader, tracker)
+        except Exception as e:
+            console.print(f"[yellow]⚠ Login LinkedIn non riuscito: {e}[/yellow]")
+            console.print("[yellow]  Continuo in modalità solo-contenuto (senza feed reale).[/yellow]")
+            console.print("[dim]  Suggerimento: accedi a LinkedIn dal browser una volta, poi riprova.[/dim]")
+            linkedin_reader = None
+            engagement = None
+            network = None
 
     # For dry_run, pass stub modules (scheduler handles None gracefully via dry_run flag)
     scheduler = DailyScheduler(
