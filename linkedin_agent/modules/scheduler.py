@@ -87,12 +87,12 @@ class DailyScheduler:
             return self._build_dry_run_plan(today)
 
         # -- Post generation --
-        if self.should_post_today(weekday_name):
+        if self.should_post_today():
             draft = self._content_gen.generate_post_draft()
             plan.post_draft = draft
-            plan.notes.append(f"Post pianificato per oggi ({weekday_name}).")
+            plan.notes.append("Post generato per oggi.")
         else:
-            plan.notes.append(f"Oggi ({weekday_name}) non è un giorno di pubblicazione.")
+            plan.notes.append("Limite settimanale di post raggiunto — nessun post oggi.")
 
         # -- Comments --
         plan.comments = self._engagement.get_daily_engagement_queue()
@@ -113,22 +113,12 @@ class DailyScheduler:
 
     def should_post_today(self, weekday_name: str | None = None) -> bool:
         """
-        Decide whether today is a posting day based on:
-        - posts_per_week limit
-        - best_days_to_post preference
-        - how many posts have already been published this week
+        Decide whether today is a posting day based only on the weekly limit.
+        Day-of-week scheduling is handled externally (e.g. n8n).
         """
         max_per_week = self._settings.activity.daily_limits.posts_per_week
         posted_this_week = self._tracker.get_weekly_post_count()
-
-        if posted_this_week >= max_per_week:
-            return False
-
-        preferred_days = self._settings.activity.best_days_to_post
-        if weekday_name and preferred_days:
-            return weekday_name in preferred_days
-
-        return True  # No preference set, always ok to post
+        return posted_this_week < max_per_week
 
     def get_posting_time(self) -> datetime:
         """Return a randomized posting time within the configured window."""
