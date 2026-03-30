@@ -65,7 +65,7 @@ def main(dry_run: bool = False, plan_only: bool = False) -> None:
         network = None
     else:
         try:
-            linkedin_reader = LinkedInReader(settings.linkedin_email, settings.linkedin_password)
+            linkedin_reader = LinkedInReader(settings.linkedin_email, settings.linkedin_password, li_at=settings.linkedin_li_at)
             engagement = EngagementModule(settings, claude, linkedin_reader, tracker)
             network = NetworkModule(settings, claude, linkedin_reader, tracker)
         except Exception as e:

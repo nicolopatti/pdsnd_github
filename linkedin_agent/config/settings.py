@@ -103,6 +103,7 @@ class Settings:
     gemini_api_key: str = field(default="", repr=False)
     linkedin_email: str = field(default="", repr=False)
     linkedin_password: str = field(default="", repr=False)
+    linkedin_li_at: str = field(default="", repr=False)  # Cookie li_at (bypasses CHALLENGE)
 
     # Derived paths
     data_dir: Path = field(default_factory=lambda: _ROOT / "linkedin_agent" / "data")
@@ -179,6 +180,7 @@ def load_settings(config_path: Path = _CONFIG_PATH) -> Settings:
     settings.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
     settings.linkedin_email = os.environ.get("LINKEDIN_EMAIL", "")
     settings.linkedin_password = os.environ.get("LINKEDIN_PASSWORD", "")
+    settings.linkedin_li_at = os.environ.get("LINKEDIN_LI_AT", "")
 
     _validate(settings)
     return settings

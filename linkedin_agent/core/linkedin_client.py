@@ -48,8 +48,12 @@ class LinkedInReader:
     Used for: feed search, people search, profile reads, comment reads.
     """
 
-    def __init__(self, email: str, password: str) -> None:
-        self._api = Linkedin(email, password)
+    def __init__(self, email: str, password: str, li_at: str = "") -> None:
+        if li_at:
+            # Cookie-based auth bypasses LinkedIn's CHALLENGE security check
+            self._api = Linkedin(email, password, cookies={"li_at": li_at})
+        else:
+            self._api = Linkedin(email, password)
 
     # ------------------------------------------------------------------
     # Feed / Post discovery
