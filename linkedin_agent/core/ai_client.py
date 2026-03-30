@@ -11,7 +11,7 @@ from typing import Optional
 from google import genai
 from google.genai import types
 
-MODEL = "gemini-2.0-flash"
+MODEL = "gemini-2.0-flash-lite"
 DEFAULT_MAX_TOKENS = 1024
 
 
