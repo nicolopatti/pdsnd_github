@@ -318,15 +318,14 @@ elif st.session_state.phase == "executing":
         + len(approved_reactions)
         + len(approved_connections)
     )
-    done = 0
+    done = [0]
 
     def update(msg, ok=True):
-        nonlocal done
         icon = "✅" if ok else "❌"
         log.append(f"{icon} {msg}")
         log_area.text("\n".join(log))
-        done += 1
-        progress.progress(done / max(total, 1))
+        done[0] += 1
+        progress.progress(done[0] / max(total, 1))
 
     if total == 0:
         st.info("Nessuna azione da eseguire.")
