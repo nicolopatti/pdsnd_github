@@ -27,7 +27,7 @@ VINCOLI TECNICI:
 - I numeri nel hook aumentano il click-through (es. "3 errori", "5 passi", "€2,4 miliardi")
 
 RISPOSTA IN JSON con questa struttura esatta:
-{
+{{
   "content": "testo completo del post senza hashtag",
   "hashtags": ["#tag1", "#tag2", ...]
-}
+}}
