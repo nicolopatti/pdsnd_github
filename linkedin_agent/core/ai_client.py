@@ -44,14 +44,18 @@ class AIClient:
         max_retries: int = 4,
     ) -> str:
         """Same as generate() but retries on quota/rate-limit errors with exponential backoff."""
-        import google.api_core.exceptions as gexc
+        try:
+            import google.api_core.exceptions as gexc
+            _retryable = (gexc.ResourceExhausted, gexc.ServiceUnavailable)
+        except ImportError:
+            _retryable = ()  # type: ignore[assignment]
 
         delay = 2
         last_error: Optional[Exception] = None
         for attempt in range(max_retries + 1):
             try:
                 return self.generate(system_prompt, user_prompt, max_tokens)
-            except (gexc.ResourceExhausted, gexc.ServiceUnavailable) as e:
+            except _retryable as e:
                 last_error = e
                 if attempt < max_retries:
                     time.sleep(delay)
