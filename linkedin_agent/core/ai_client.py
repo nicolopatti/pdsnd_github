@@ -8,7 +8,8 @@ from __future__ import annotations
 import time
 from typing import Optional
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 MODEL = "gemini-1.5-flash"
 DEFAULT_MAX_TOKENS = 1024
@@ -16,13 +17,7 @@ DEFAULT_MAX_TOKENS = 1024
 
 class AIClient:
     def __init__(self, api_key: str, model: str = MODEL) -> None:
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(
-            model_name=model,
-            generation_config=genai.GenerationConfig(
-                max_output_tokens=DEFAULT_MAX_TOKENS,
-            ),
-        )
+        self._client = genai.Client(api_key=api_key)
         self._model_name = model
 
     def generate(
@@ -32,12 +27,12 @@ class AIClient:
         max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> str:
         """Single-turn text generation. Returns the model's text response."""
-        # Gemini free API doesn't support separate system instructions in all versions;
-        # we concatenate system + user into a single prompt.
+        # Concatenate system + user into a single prompt (simpler and works across all tiers)
         full_prompt = f"{system_prompt}\n\n---\n\n{user_prompt}"
-        response = self._model.generate_content(
-            full_prompt,
-            generation_config=genai.GenerationConfig(max_output_tokens=max_tokens),
+        response = self._client.models.generate_content(
+            model=self._model_name,
+            contents=full_prompt,
+            config=types.GenerateContentConfig(max_output_tokens=max_tokens),
         )
         return response.text
 
