@@ -1,20 +1,78 @@
 """
-LinkedIn Growth Agent — Interfaccia grafica web (Streamlit)
-
-Avvio:
-    streamlit run linkedin_agent/scripts/app.py
-
-Si apre automaticamente il browser su http://localhost:8501
+LinkedIn Growth Agent — Interfaccia web (Streamlit)
+Avvio: streamlit run linkedin_agent/scripts/app.py
 """
 from __future__ import annotations
-
 import sys
 from pathlib import Path
-
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import streamlit as st
 
+st.set_page_config(page_title="LinkedIn Growth Agent", page_icon="💼", layout="wide")
+
+# ── CSS ──────────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+  .block-container { padding-top: 1.5rem; }
+  h1 { color: #0077B5; }
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 14px;
+    border-left: 4px solid #0077B5;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+  }
+  .card-yellow { border-left-color: #f5a623; }
+  .card-green  { border-left-color: #27ae60; }
+  .card-purple { border-left-color: #8e44ad; }
+  .pill {
+    display: inline-block;
+    background: #e8f4fd;
+    color: #0077B5;
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 0.75em;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .why-box {
+    background: #f0f7ff;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 10px;
+    font-size: 0.88em;
+    color: #333;
+    border-left: 3px solid #0077B5;
+  }
+  .score-bar { height: 6px; border-radius: 3px; background: #e0e0e0; margin: 4px 0 10px; }
+  .score-fill { height: 6px; border-radius: 3px; background: #0077B5; }
+  .rec-card {
+    background: #fff8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border-left: 3px solid #f5a623;
+  }
+  .gap-card {
+    background: #fff0f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border-left: 3px solid #e74c3c;
+  }
+  .win-card {
+    background: #f0fff4;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border-left: 3px solid #27ae60;
+  }
+</style>
+""", unsafe_allow_html=True)
+
+# ── Imports (after path setup) ────────────────────────────────────────────────
 from linkedin_agent.automation.browser import BrowserSession
 from linkedin_agent.automation.comment_publisher import CommentPublisher
 from linkedin_agent.automation.post_publisher import PostPublisher
@@ -29,409 +87,468 @@ from linkedin_agent.modules.scheduler import DailyScheduler
 from linkedin_agent.modules.strategy_advisor import StrategyAdvisor
 from linkedin_agent.modules.tracker import ActivityTracker
 
-# ---------------------------------------------------------------------------
-# Page config
-# ---------------------------------------------------------------------------
-st.set_page_config(
-    page_title="LinkedIn Growth Agent",
-    page_icon="🚀",
-    layout="wide",
-)
-
-# ---------------------------------------------------------------------------
-# Session state init
-# ---------------------------------------------------------------------------
-def _init_state():
-    defaults = {
-        "phase": "home",          # home | planning | reviewing | executing | done
-        "plan": None,
-        "approved_post": None,
-        "post_skipped": False,
-        "approved_comments": [],
-        "approved_reactions": [],
-        "approved_connections": [],
-        "execution_log": [],
-        "settings": None,
-        "linkedin_ok": False,
-    }
-    for k, v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
-
-_init_state()
-
-# ---------------------------------------------------------------------------
-# Load settings (cached)
-# ---------------------------------------------------------------------------
+# ── Settings ──────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
-def get_settings():
+def _load():
     try:
         return load_settings(), None
     except Exception as e:
         return None, str(e)
 
-settings, settings_error = get_settings()
+settings, err = _load()
 
-# ---------------------------------------------------------------------------
-# Header
-# ---------------------------------------------------------------------------
-st.title("🚀 LinkedIn Growth Agent")
-st.caption("Genera, rivedi e pubblica contenuti LinkedIn in modo semi-automatico.")
+# ── Session state ─────────────────────────────────────────────────────────────
+for k, v in {
+    "phase": "home", "plan": None, "dry_run": False,
+    "approved_post": None, "post_skipped": False,
+    "approved_comments": [], "approved_reactions": [], "approved_connections": [],
+    "exec_log": [],
+}.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
-if settings_error:
-    st.error(f"Errore configurazione: {settings_error}")
-    st.info("Controlla che il file `.env` esista e contenga GEMINI_API_KEY, LINKEDIN_EMAIL, LINKEDIN_PASSWORD.")
+# ── Header ────────────────────────────────────────────────────────────────────
+col_title, col_user = st.columns([3, 1])
+with col_title:
+    st.title("💼 LinkedIn Growth Agent")
+    if settings:
+        st.caption(f"Gestione account: **{settings.linkedin_email}** · Niche: fondi europei & PNRR")
+with col_user:
+    if settings:
+        st.markdown(f"""
+        <div style='text-align:right;padding-top:10px'>
+          <span style='font-weight:700;color:#0077B5;font-size:1.1em'>{settings.user.name}</span><br>
+          <span style='font-size:0.8em;color:#666'>{settings.user.headline}</span>
+        </div>""", unsafe_allow_html=True)
+
+if err:
+    st.error(f"Errore configurazione: {err}")
     st.stop()
 
-# ---------------------------------------------------------------------------
-# Sidebar — status
-# ---------------------------------------------------------------------------
-with st.sidebar:
-    st.header("Stato")
-    st.success("✅ Gemini API configurata")
-    st.success(f"✅ Account: {settings.linkedin_email}")
-    if settings.linkedin_li_at:
-        st.success("✅ Cookie li_at presente")
-    else:
-        st.warning("⚠️ Cookie li_at non presente (possibile CHALLENGE)")
+# ── Tabs ──────────────────────────────────────────────────────────────────────
+tab_piano, tab_profilo, tab_stats = st.tabs(["📋 Piano Giornaliero", "🔍 Analisi Profilo", "📊 Statistiche"])
 
-    st.divider()
-    st.header("Limiti settimanali")
-    st.write(f"Post/settimana: **{settings.activity.daily_limits.posts_per_week}**")
-    st.write(f"Commenti/giorno: **{settings.activity.daily_limits.comments_per_day}**")
-    st.write(f"Reazioni/giorno: **{settings.activity.daily_limits.reactions_per_day}**")
-    st.write(f"Connessioni/giorno: **{settings.activity.daily_limits.connection_requests_per_day}**")
+# ════════════════════════════════════════════════════════════════════════════
+# TAB 1 — PIANO GIORNALIERO
+# ════════════════════════════════════════════════════════════════════════════
+with tab_piano:
 
-    st.divider()
-    if st.button("🔄 Ricomincia da capo"):
-        for k in ["phase", "plan", "approved_post", "post_skipped",
-                  "approved_comments", "approved_reactions", "approved_connections", "execution_log"]:
-            st.session_state[k] = None if k in ("plan", "approved_post") else ([] if k.startswith("approved") or k == "execution_log" else ("home" if k == "phase" else False))
-        st.session_state["phase"] = "home"
-        st.session_state["post_skipped"] = False
-        st.rerun()
+    # Sidebar-like controls in an expander
+    with st.expander("⚙️ Opzioni", expanded=False):
+        dry_run = st.checkbox("Modalità demo (dati finti, nessuna chiamata API)", value=False)
+        st.session_state.dry_run = dry_run
 
-# ---------------------------------------------------------------------------
-# FASE 1 — HOME
-# ---------------------------------------------------------------------------
-if st.session_state.phase == "home":
-    st.subheader("Piano Giornaliero")
-    st.write("Clicca il bottone per generare il piano di oggi: post, commenti, reazioni e connessioni.")
+    # ── PHASE: HOME ──────────────────────────────────────────────────────────
+    if st.session_state.phase == "home":
+        st.markdown("""
+        <div class='card'>
+          <h4 style='margin:0 0 8px;color:#0077B5'>Come funziona</h4>
+          <ol style='margin:0;padding-left:18px;line-height:1.8'>
+            <li><b>Genera piano</b> — l'AI analizza la tua nicchia e prepara post, commenti, reazioni e connessioni</li>
+            <li><b>Rivedi ogni azione</b> — vedi il contenuto e la spiegazione strategica, approva o salta</li>
+            <li><b>Esegui</b> — l'agente pubblica automaticamente su LinkedIn ciò che hai approvato</li>
+          </ol>
+        </div>
+        """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        dry_run = st.checkbox("Modalità demo (dati finti)", value=False)
-    with col2:
-        st.caption("Usa la modalità demo per testare senza toccare LinkedIn.")
+        if st.button("📋 Genera Piano Giornaliero", type="primary", use_container_width=True):
+            st.session_state.phase = "planning"
+            st.rerun()
 
-    if st.button("📋 Genera Piano Giornaliero", type="primary", use_container_width=True):
-        st.session_state.phase = "planning"
-        st.session_state["_dry_run"] = dry_run
-        st.rerun()
+    # ── PHASE: PLANNING ──────────────────────────────────────────────────────
+    elif st.session_state.phase == "planning":
+        with st.spinner("Generazione piano in corso — Gemini AI sta analizzando la tua nicchia..."):
+            db_path = settings.data_dir / "activity_log.db"
+            tracker = ActivityTracker(db_path)
+            tracker.init_db()
+            ai = AIClient(api_key=settings.gemini_api_key)
+            content_gen = ContentGenerator(settings, ai)
+            advisor = StrategyAdvisor(settings, ai, tracker)
 
-# ---------------------------------------------------------------------------
-# FASE 2 — PLANNING (spinner + build)
-# ---------------------------------------------------------------------------
-elif st.session_state.phase == "planning":
-    dry_run = st.session_state.get("_dry_run", False)
+            linkedin_reader = engagement = network = None
+            if not st.session_state.dry_run:
+                try:
+                    linkedin_reader = LinkedInReader(settings.linkedin_email, settings.linkedin_password, li_at=settings.linkedin_li_at)
+                    engagement = EngagementModule(settings, ai, linkedin_reader, tracker)
+                    network = NetworkModule(settings, ai, linkedin_reader, tracker)
+                except Exception as e:
+                    st.warning(f"⚠️ Login LinkedIn non riuscito: {e}. Continuo in modalità solo-contenuto.")
 
-    with st.spinner("Caricamento piano giornaliero... (può richiedere qualche secondo)"):
-        db_path = settings.data_dir / "activity_log.db"
-        tracker = ActivityTracker(db_path)
-        tracker.init_db()
+            class _SE:
+                def get_daily_engagement_queue(self, limit=None): return []
+                def get_reaction_queue(self, limit=None): return []
+            class _SN:
+                def get_connection_queue(self, limit=None): return []
 
-        ai = AIClient(api_key=settings.gemini_api_key)
-        content_gen = ContentGenerator(settings, ai)
-        advisor = StrategyAdvisor(settings, ai, tracker)
+            scheduler = DailyScheduler(settings, tracker, content_gen, engagement or _SE(), network or _SN())
+            plan = scheduler.build_daily_plan(dry_run=st.session_state.dry_run)
+            st.session_state.plan = plan
+            st.session_state.approved_comments = [True] * len(plan.comments)
+            st.session_state.approved_reactions = [True] * len(plan.reactions)
+            st.session_state.approved_connections = [True] * len(plan.connections)
+            st.session_state.phase = "reviewing"
+            st.rerun()
 
-        linkedin_reader = None
-        engagement = None
-        network = None
+    # ── PHASE: REVIEWING ─────────────────────────────────────────────────────
+    elif st.session_state.phase == "reviewing":
+        plan = st.session_state.plan
 
-        if not dry_run:
-            try:
-                linkedin_reader = LinkedInReader(
-                    settings.linkedin_email,
-                    settings.linkedin_password,
-                    li_at=settings.linkedin_li_at,
-                )
-                engagement = EngagementModule(settings, ai, linkedin_reader, tracker)
-                network = NetworkModule(settings, ai, linkedin_reader, tracker)
-                st.session_state.linkedin_ok = True
-            except Exception as e:
-                st.warning(f"⚠️ Login LinkedIn non riuscito ({e}). Continuo in modalità solo-contenuto.")
-                st.session_state.linkedin_ok = False
-
-        class _StubEngagement:
-            def get_daily_engagement_queue(self, limit=None): return []
-            def get_reaction_queue(self, limit=None): return []
-
-        class _StubNetwork:
-            def get_connection_queue(self, limit=None): return []
-
-        scheduler = DailyScheduler(
-            settings=settings,
-            tracker=tracker,
-            content_gen=content_gen,
-            engagement=engagement or _StubEngagement(),
-            network=network or _StubNetwork(),
-        )
-
-        plan = scheduler.build_daily_plan(dry_run=dry_run)
-        st.session_state.plan = plan
-        st.session_state.approved_comments = [True] * len(plan.comments)
-        st.session_state.approved_reactions = [True] * len(plan.reactions)
-        st.session_state.approved_connections = [True] * len(plan.connections)
-        st.session_state.phase = "reviewing"
-        st.rerun()
-
-# ---------------------------------------------------------------------------
-# FASE 3 — REVIEWING
-# ---------------------------------------------------------------------------
-elif st.session_state.phase == "reviewing":
-    plan = st.session_state.plan
-
-    if not plan or plan.total_actions == 0:
-        st.info("Nessuna attività pianificata per oggi.")
-        if plan and plan.notes:
+        if plan.notes:
             for note in plan.notes:
-                st.caption(f"ℹ️ {note}")
-    else:
-        # Notes
-        for note in (plan.notes or []):
-            st.caption(f"ℹ️ {note}")
+                st.info(f"ℹ️ {note}")
 
-        # ----------------------------------------------------------------
-        # POST
-        # ----------------------------------------------------------------
-        if plan.post_draft:
-            st.subheader("📝 Post da pubblicare")
-            post = plan.post_draft
-            full_text = post.content + "\n\n" + " ".join(post.hashtags)
-
-            edited_text = st.text_area(
-                "Testo del post (puoi modificarlo direttamente qui)",
-                value=full_text,
-                height=250,
-                key="post_text",
-            )
-            char_count = len(edited_text)
-            color = "green" if char_count <= 1300 else "red"
-            st.markdown(f"<small style='color:{color}'>{char_count}/1300 caratteri</small>", unsafe_allow_html=True)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("✅ Approva post", type="primary", use_container_width=True):
-                    st.session_state.approved_post = edited_text
-                    st.session_state.post_skipped = False
-                    st.success("Post approvato!")
-            with col2:
-                if st.button("⏭️ Salta post", use_container_width=True):
-                    st.session_state.approved_post = None
-                    st.session_state.post_skipped = True
-                    st.info("Post saltato.")
-
-        # ----------------------------------------------------------------
-        # COMMENTI
-        # ----------------------------------------------------------------
-        if plan.comments:
-            st.subheader(f"💬 Commenti ({len(plan.comments)})")
-            for i, comment in enumerate(plan.comments):
-                with st.expander(f"Commento su post di **{comment.post_author}**", expanded=i == 0):
-                    st.caption(f"Post: _{comment.post_text_snippet}_")
-                    st.write(comment.comment_text)
-                    st.session_state.approved_comments[i] = st.checkbox(
-                        "Approva questo commento",
-                        value=st.session_state.approved_comments[i],
-                        key=f"comment_{i}",
-                    )
-
-        # ----------------------------------------------------------------
-        # REAZIONI
-        # ----------------------------------------------------------------
-        if plan.reactions:
-            st.subheader(f"👍 Reazioni ({len(plan.reactions)})")
-            for i, reaction in enumerate(plan.reactions):
-                with st.expander(f"{'🔁 Diffondi' if reaction.reaction_type == 'repost' else '👍 Consiglia'} post di **{reaction.post_author}**", expanded=False):
-                    st.caption(f"_{reaction.post_text_snippet}_")
-                    if reaction.motivation:
-                        st.info(reaction.motivation)
-                    st.session_state.approved_reactions[i] = st.checkbox(
-                        "Approva questa reazione",
-                        value=st.session_state.approved_reactions[i],
-                        key=f"reaction_{i}",
-                    )
-
-        # ----------------------------------------------------------------
-        # CONNESSIONI
-        # ----------------------------------------------------------------
-        if plan.connections:
-            st.subheader(f"🤝 Connessioni ({len(plan.connections)})")
-            for i, conn in enumerate(plan.connections):
-                with st.expander(f"**{conn.full_name}** — {conn.headline}", expanded=False):
-                    if conn.motivation:
-                        st.info(conn.motivation)
-                    st.caption(conn.profile_url)
-                    st.session_state.approved_connections[i] = st.checkbox(
-                        "Approva questa connessione",
-                        value=st.session_state.approved_connections[i],
-                        key=f"connection_{i}",
-                    )
-
-        # ----------------------------------------------------------------
-        # Bottone esecuzione
-        # ----------------------------------------------------------------
-        st.divider()
-        n_approved = (
-            (1 if st.session_state.approved_post else 0)
-            + sum(st.session_state.approved_comments)
-            + sum(st.session_state.approved_reactions)
-            + sum(st.session_state.approved_connections)
-        )
-
-        if n_approved == 0 and st.session_state.post_skipped is not False:
-            st.warning("Nessuna azione approvata. Approva almeno un'azione per procedere.")
-        else:
-            if st.button(f"🚀 Esegui {n_approved} azioni approvate", type="primary", use_container_width=True, disabled=(n_approved == 0)):
-                st.session_state.phase = "executing"
+        if plan.total_actions == 0:
+            st.warning("Nessuna attività pianificata per oggi.")
+            if st.button("← Torna alla home"):
+                st.session_state.phase = "home"
                 st.rerun()
+        else:
+            # ── POST ──────────────────────────────────────────────────────────
+            if plan.post_draft:
+                post = plan.post_draft
+                st.markdown("### 📝 Post da pubblicare")
+                st.markdown(f"""
+                <div class='card'>
+                  <div>
+                    <span class='pill'>{post.pillar}</span>
+                    <span class='pill'>{post.format_type}</span>
+                  </div>
+                  <br>
+                </div>
+                """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
-# FASE 4 — EXECUTING
-# ---------------------------------------------------------------------------
-elif st.session_state.phase == "executing":
-    plan = st.session_state.plan
-    st.subheader("⚙️ Esecuzione in corso...")
+                edited = st.text_area("Testo del post (modificabile)", value=post.content + "\n\n" + " ".join(post.hashtags), height=220, key="post_text")
+                chars = len(edited)
+                bar_pct = min(chars / 1300, 1.0)
+                color = "#27ae60" if chars <= 1300 else "#e74c3c"
+                st.markdown(f"""
+                <div style='display:flex;align-items:center;gap:10px;margin-bottom:8px'>
+                  <div class='score-bar' style='flex:1'><div class='score-fill' style='width:{bar_pct*100:.0f}%;background:{color}'></div></div>
+                  <span style='font-size:0.82em;color:{color};white-space:nowrap'>{chars}/1300 caratteri</span>
+                </div>
+                """, unsafe_allow_html=True)
 
-    log_area = st.empty()
-    progress = st.progress(0)
-    log = []
+                # Why this post
+                _format_why = {
+                    "guida_pratica": "Le guide pratiche step-by-step ottengono **2× più salvataggi** rispetto ai post di opinione nel B2B (fonte: LinkedIn Internal Data 2024). I lettori le conservano come riferimento futuro.",
+                    "sintesi_bando": "Le sintesi di bandi con scadenza imminente generano **alta urgency** e vengono condivise da colleghi del settore. Posizionano l'autore come punto di riferimento per le novità.",
+                    "caso_studio": "I casi studio con numeri reali (es. €X ottenuti) ottengono **3× più commenti** perché stimolano domande concrete e confronti con esperienze proprie.",
+                    "checklist": "Le checklist sono i contenuti più **salvati su LinkedIn B2B**: forniscono valore immediato e vengono consultate ripetutamente, generando impression organiche nel tempo.",
+                    "errori_comuni": "I post sugli errori da evitare attivano la **loss aversion** cognitiva — le persone reagiscono più agli errori che ai consigli positivi. Alto engagement garantito.",
+                    "dato_sorprendente": "I post con dati inaspettati come hook ottengono **+34% di click sul 'vedi altro'** (Richard van der Blom, LinkedIn Algorithm Report 2024). Il contrasto con le aspettative cattura l'attenzione.",
+                    "risorsa": "Le liste di risorse gratuite sono tra i contenuti più **condivisi organicamente**: chi le condivide aggiunge valore al proprio network, moltiplicando la tua visibilità.",
+                }
+                why = _format_why.get(post.format_type, "Questo formato è stato selezionato in base ai pilastri della tua strategia di contenuto e al peso configurato.")
+                st.markdown(f"<div class='why-box'>💡 <b>Perché questo post?</b><br>{why}</div>", unsafe_allow_html=True)
 
-    approved_post_text = st.session_state.approved_post
-    approved_comments = [c for i, c in enumerate(plan.comments) if st.session_state.approved_comments[i]]
-    approved_reactions = [r for i, r in enumerate(plan.reactions) if st.session_state.approved_reactions[i]]
-    approved_connections = [c for i, c in enumerate(plan.connections) if st.session_state.approved_connections[i]]
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("✅ Approva post", type="primary", use_container_width=True):
+                        st.session_state.approved_post = edited
+                        st.success("Approvato!")
+                with col2:
+                    if st.button("⏭️ Salta post", use_container_width=True):
+                        st.session_state.approved_post = None
+                        st.session_state.post_skipped = True
+                        st.info("Saltato.")
 
-    total = (
-        (1 if approved_post_text else 0)
-        + len(approved_comments)
-        + len(approved_reactions)
-        + len(approved_connections)
-    )
-    done = [0]
+                st.divider()
 
-    def update(msg, ok=True):
-        icon = "✅" if ok else "❌"
-        log.append(f"{icon} {msg}")
-        log_area.text("\n".join(log))
-        done[0] += 1
-        progress.progress(done[0] / max(total, 1))
+            # ── COMMENTI ──────────────────────────────────────────────────────
+            if plan.comments:
+                st.markdown("### 💬 Commenti suggeriti")
+                for i, c in enumerate(plan.comments):
+                    score_pct = int(c.relevance_score * 100)
+                    with st.expander(f"**{c.post_author}** — rilevanza {score_pct}%", expanded=(i == 0)):
+                        st.markdown(f"<div class='card card-yellow'><b>Post originale:</b><br><i>\"{c.post_text_snippet}\"</i></div>", unsafe_allow_html=True)
+                        st.markdown(f"**Il tuo commento proposto:**\n\n{c.comment_text}")
+                        st.markdown(f"""<div class='why-box'>💡 <b>Perché commentare?</b><br>
+                        Commentare post con rilevanza >{score_pct-10}% nel tuo niche aumenta la tua visibilità verso i follower di <b>{c.post_author}</b>.
+                        I commenti di valore (con dati o insight specifici) vengono segnalati dall'algoritmo LinkedIn come contenuto esperto,
+                        ampliando il tuo reach organico senza pubblicare un post.</div>""", unsafe_allow_html=True)
+                        st.session_state.approved_comments[i] = st.checkbox("✅ Approva commento", value=st.session_state.approved_comments[i], key=f"c_{i}")
 
-    if total == 0:
-        st.info("Nessuna azione da eseguire.")
-        st.session_state.phase = "done"
-        st.rerun()
-    else:
+                st.divider()
+
+            # ── REAZIONI ──────────────────────────────────────────────────────
+            if plan.reactions:
+                st.markdown("### 👍 Reazioni suggerite")
+                for i, r in enumerate(plan.reactions):
+                    icon = "🔁 Diffondi" if r.reaction_type == "repost" else "👍 Consiglia"
+                    with st.expander(f"{icon} — post di **{r.post_author}**", expanded=False):
+                        st.markdown(f"<div class='card card-purple'><i>\"{r.post_text_snippet}\"</i></div>", unsafe_allow_html=True)
+                        if r.motivation:
+                            st.markdown(f"<div class='why-box'>💡 <b>Perché questa reazione?</b><br>{r.motivation}</div>", unsafe_allow_html=True)
+                        else:
+                            action = "Diffondere" if r.reaction_type == "repost" else "Consigliare"
+                            st.markdown(f"""<div class='why-box'>💡 <b>Perché questa reazione?</b><br>
+                            {action} un post rilevante nel tuo niche segnala all'algoritmo LinkedIn che sei attivo nel settore.
+                            Aumenta la tua visibilità verso i follower dell'autore e costruisce relazioni prima ancora di una richiesta di connessione.</div>""", unsafe_allow_html=True)
+                        st.session_state.approved_reactions[i] = st.checkbox("✅ Approva reazione", value=st.session_state.approved_reactions[i], key=f"r_{i}")
+
+                st.divider()
+
+            # ── CONNESSIONI ───────────────────────────────────────────────────
+            if plan.connections:
+                st.markdown("### 🤝 Connessioni suggerite")
+                for i, conn in enumerate(plan.connections):
+                    score_pct = int(conn.relevance_score * 100)
+                    with st.expander(f"**{conn.full_name}** · {conn.headline} — {score_pct}% match", expanded=False):
+                        st.markdown(f"<div class='card card-green'>🔗 <a href='{conn.profile_url}' target='_blank'>{conn.profile_url}</a></div>", unsafe_allow_html=True)
+                        if conn.motivation:
+                            st.markdown(f"<div class='why-box'>💡 <b>Perché connettersi?</b><br>{conn.motivation}</div>", unsafe_allow_html=True)
+                        st.session_state.approved_connections[i] = st.checkbox("✅ Approva connessione", value=st.session_state.approved_connections[i], key=f"k_{i}")
+
+                st.divider()
+
+            # ── EXECUTE BUTTON ────────────────────────────────────────────────
+            n = (
+                (1 if st.session_state.approved_post else 0)
+                + sum(st.session_state.approved_comments)
+                + sum(st.session_state.approved_reactions)
+                + sum(st.session_state.approved_connections)
+            )
+            col_exec, col_back = st.columns([2, 1])
+            with col_exec:
+                if st.button(f"🚀 Esegui {n} azioni approvate", type="primary", use_container_width=True, disabled=(n == 0)):
+                    st.session_state.phase = "executing"
+                    st.rerun()
+            with col_back:
+                if st.button("← Ricomincia", use_container_width=True):
+                    st.session_state.phase = "home"
+                    st.rerun()
+
+    # ── PHASE: EXECUTING ─────────────────────────────────────────────────────
+    elif st.session_state.phase == "executing":
+        plan = st.session_state.plan
+        st.markdown("### ⚙️ Esecuzione in corso")
+        log_slot = st.empty()
+        prog = st.progress(0)
+        log = []
+
+        ap = st.session_state.approved_post
+        ac = [c for i, c in enumerate(plan.comments) if st.session_state.approved_comments[i]]
+        ar = [r for i, r in enumerate(plan.reactions) if st.session_state.approved_reactions[i]]
+        ak = [k for i, k in enumerate(plan.connections) if st.session_state.approved_connections[i]]
+        total = (1 if ap else 0) + len(ac) + len(ar) + len(ak)
+        done = [0]
+
+        def _upd(msg, ok=True):
+            log.append(("✅" if ok else "❌") + " " + msg)
+            log_slot.markdown("\n\n".join(log))
+            done[0] += 1
+            prog.progress(done[0] / max(total, 1))
+
         try:
             db_path = settings.data_dir / "activity_log.db"
             tracker = ActivityTracker(db_path)
             tracker.init_db()
-
             with BrowserSession(settings) as session:
-                if approved_post_text:
+                if ap:
                     try:
-                        post_pub = PostPublisher(session)
-                        # Override content with edited text
-                        post = plan.post_draft
-                        post.content = approved_post_text
-                        urn = post_pub.publish(post)
-                        tracker.mark_post_published(post.id, urn)
-                        update("Post pubblicato su LinkedIn")
+                        plan.post_draft.content = ap
+                        urn = PostPublisher(session).publish(plan.post_draft)
+                        tracker.mark_post_published(plan.post_draft.id, urn)
+                        _upd("Post pubblicato su LinkedIn")
                     except Exception as e:
-                        update(f"Errore pubblicazione post: {e}", ok=False)
+                        _upd(f"Errore post: {e}", False)
                     session.random_delay()
-
-                for comment in approved_comments:
+                for c in ac:
                     try:
-                        comment_pub = CommentPublisher(session)
-                        ok = comment_pub.post_comment(comment)
+                        ok = CommentPublisher(session).post_comment(c)
                         if ok:
-                            tracker.mark_comment_published(comment.id)
-                            update(f"Commento pubblicato su post di {comment.post_author}")
+                            tracker.mark_comment_published(c.id)
+                            _upd(f"Commento su post di {c.post_author}")
                         else:
-                            update(f"Errore commento su {comment.post_author}", ok=False)
+                            _upd(f"Errore commento su {c.post_author}", False)
                     except Exception as e:
-                        update(f"Errore commento: {e}", ok=False)
+                        _upd(f"Errore: {e}", False)
                     session.random_delay()
-
-                for reaction in approved_reactions:
+                for r in ar:
                     try:
-                        reaction_pub = ReactionPublisher(session)
-                        ok = reaction_pub.react(reaction)
+                        ok = ReactionPublisher(session).react(r)
                         if ok:
-                            tracker.mark_reaction_done(reaction.id)
-                            update(f"Reazione applicata su post di {reaction.post_author}")
+                            tracker.mark_reaction_done(r.id)
+                            _upd(f"Reazione su post di {r.post_author}")
                         else:
-                            update(f"Errore reazione su {reaction.post_author}", ok=False)
+                            _upd(f"Errore reazione su {r.post_author}", False)
                     except Exception as e:
-                        update(f"Errore reazione: {e}", ok=False)
+                        _upd(f"Errore: {e}", False)
                     session.random_delay()
-
-                for conn in approved_connections:
+                for k in ak:
                     try:
-                        session.page.goto(conn.profile_url, timeout=20000)
+                        session.page.goto(k.profile_url, timeout=20000)
                         session.page.wait_for_load_state("networkidle", timeout=15000)
                         session.random_delay()
-                        connect_btn = session.page.locator(
-                            "button[aria-label*='Collegati'], button[aria-label*='Connect']"
-                        ).first
-                        connect_btn.click()
+                        session.page.locator("button[aria-label*='Collegati'], button[aria-label*='Connect']").first.click()
                         session.page.wait_for_timeout(2000)
                         try:
-                            send_btn = session.page.locator(
-                                "button[aria-label*='Invia ora'], button[aria-label*='Send now']"
-                            ).first
-                            send_btn.click()
+                            session.page.locator("button[aria-label*='Invia ora'], button[aria-label*='Send now']").first.click()
                         except Exception:
                             pass
-                        tracker.mark_connection_sent(conn.id)
-                        update(f"Richiesta connessione inviata a {conn.full_name}")
+                        tracker.mark_connection_sent(k.id)
+                        _upd(f"Connessione inviata a {k.full_name}")
                     except Exception as e:
-                        update(f"Errore connessione {conn.full_name}: {e}", ok=False)
+                        _upd(f"Errore connessione {k.full_name}: {e}", False)
                     session.random_delay()
-
-            st.session_state.execution_log = log
-            st.session_state.phase = "done"
-            st.rerun()
-
         except Exception as e:
-            st.error(f"Errore durante l'esecuzione: {e}")
-            st.session_state.execution_log = log
-            st.session_state.phase = "done"
+            _upd(f"Errore sessione browser: {e}", False)
+
+        st.session_state.exec_log = log
+        st.session_state.phase = "done"
+        st.rerun()
+
+    # ── PHASE: DONE ──────────────────────────────────────────────────────────
+    elif st.session_state.phase == "done":
+        st.success("✅ Sessione completata!")
+        if st.session_state.exec_log:
+            st.markdown("**Riepilogo azioni:**")
+            for line in st.session_state.exec_log:
+                st.write(line)
+        else:
+            st.info("Nessuna azione eseguita (modalità demo o tutte saltate).")
+        if st.button("🔄 Nuova sessione", type="primary"):
+            for k in ["phase","plan","approved_post","post_skipped","approved_comments","approved_reactions","approved_connections","exec_log"]:
+                st.session_state[k] = "home" if k=="phase" else ([] if "approved" in k or k=="exec_log" else (None if k in ("plan","approved_post") else False))
             st.rerun()
 
-# ---------------------------------------------------------------------------
-# FASE 5 — DONE
-# ---------------------------------------------------------------------------
-elif st.session_state.phase == "done":
-    st.subheader("✅ Completato!")
 
-    log = st.session_state.execution_log
-    if log:
-        st.write("**Riepilogo azioni:**")
-        for line in log:
-            st.write(line)
+# ════════════════════════════════════════════════════════════════════════════
+# TAB 2 — ANALISI PROFILO
+# ════════════════════════════════════════════════════════════════════════════
+with tab_profilo:
+    st.markdown("### 🔍 Analisi del tuo posizionamento LinkedIn")
+    st.caption("L'AI analizza la tua configurazione e ti dà raccomandazioni concrete per crescere nel niche fondi europei.")
+
+    col_info, col_btn = st.columns([3, 1])
+    with col_info:
+        st.markdown(f"""
+        <div class='card'>
+          <b>{settings.user.name}</b> · {settings.user.headline}<br>
+          <span class='pill'>fondi europei</span>
+          <span class='pill'>PNRR</span>
+          <span class='pill'>Horizon Europe</span>
+          <span class='pill'>terzo settore</span>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_btn:
+        run_analysis = st.button("🔍 Analizza profilo", type="primary", use_container_width=True)
+
+    if run_analysis:
+        with st.spinner("Gemini sta analizzando il tuo posizionamento..."):
+            db_path = settings.data_dir / "activity_log.db"
+            tracker = ActivityTracker(db_path)
+            tracker.init_db()
+            ai = AIClient(api_key=settings.gemini_api_key)
+            advisor = StrategyAdvisor(settings, ai, tracker)
+            analysis = advisor.analyze_profile_positioning()
+            st.session_state["profile_analysis"] = analysis
+
+    if "profile_analysis" in st.session_state:
+        a = st.session_state["profile_analysis"]
+
+        # Score
+        score = a.get("positioning_score", 0)
+        bar_w = int(score * 10)
+        st.markdown(f"""
+        <div style='margin:20px 0 10px'>
+          <span style='font-size:1.1em;font-weight:700'>Punteggio posizionamento: {score}/10</span>
+          <div class='score-bar'><div class='score-fill' style='width:{bar_w}%'></div></div>
+          <span style='font-size:0.88em;color:#555'>{a.get("score_rationale","")}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 3 columns: strengths / gaps / opportunities
+        col_s, col_g, col_o = st.columns(3)
+        with col_s:
+            st.markdown("#### ✅ Punti di forza")
+            for s in a.get("strengths", []):
+                st.markdown(f"<div class='win-card'>✔ {s}</div>", unsafe_allow_html=True)
+        with col_g:
+            st.markdown("#### ⚠️ Lacune")
+            for g in a.get("gaps", []):
+                st.markdown(f"<div class='gap-card'>✖ {g}</div>", unsafe_allow_html=True)
+        with col_o:
+            st.markdown("#### 🚀 Opportunità")
+            for o in a.get("opportunities", []):
+                st.markdown(f"<div class='rec-card'>→ {o}</div>", unsafe_allow_html=True)
+
+        st.divider()
+
+        # Profile recommendations
+        pr = a.get("profile_recommendations", [])
+        if pr:
+            st.markdown("#### 🛠️ Raccomandazioni per il profilo LinkedIn")
+            for rec in pr:
+                st.markdown(f"""
+                <div class='rec-card'>
+                  <b>{rec.get("area","")}</b><br>
+                  <span style='color:#888;font-size:0.88em'>Problema: {rec.get("issue","")}</span><br>
+                  💡 {rec.get("suggestion","")}
+                </div>
+                """, unsafe_allow_html=True)
+
+        # Content recommendations
+        cr = a.get("content_recommendations", [])
+        if cr:
+            st.markdown("#### 📈 Raccomandazioni per la strategia di contenuto")
+            for rec in sorted(cr, key=lambda x: x.get("priority", 99)):
+                st.markdown(f"""
+                <div class='rec-card'>
+                  <span style='color:#f5a623;font-weight:700'>#{rec.get("priority","")}</span>
+                  <b> {rec.get("action","")}</b><br>
+                  <span style='font-size:0.88em;color:#555'>{rec.get("rationale","")}</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # Quick wins
+        qw = a.get("quick_wins", [])
+        if qw:
+            st.markdown("#### ⚡ Quick wins — da fare oggi")
+            for q in qw:
+                st.markdown(f"<div class='win-card'>⚡ {q}</div>", unsafe_allow_html=True)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# TAB 3 — STATISTICHE
+# ════════════════════════════════════════════════════════════════════════════
+with tab_stats:
+    st.markdown("### 📊 Statistiche attività")
+
+    db_path = settings.data_dir / "activity_log.db"
+    if not db_path.exists():
+        st.info("Nessuna attività registrata ancora. Esegui il setup DB prima.")
     else:
-        st.info("Nessuna azione eseguita (tutte saltate o modalità demo).")
+        tracker = ActivityTracker(db_path)
+        tracker.init_db()
+        report = tracker.export_progress_report()
 
-    st.divider()
-    if st.button("🔄 Inizia una nuova sessione", type="primary", use_container_width=True):
-        st.session_state.phase = "home"
-        st.session_state.plan = None
-        st.session_state.approved_post = None
-        st.session_state.post_skipped = False
-        st.session_state.approved_comments = []
-        st.session_state.approved_reactions = []
-        st.session_state.approved_connections = []
-        st.session_state.execution_log = []
-        st.rerun()
+        # KPI metrics
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Post pubblicati", report["all_time"]["posts_published"], delta=f"{report['this_week']['posts']} questa settimana")
+        c2.metric("Commenti postati", report["all_time"]["comments_posted"], delta=f"{report['today']['comments']} oggi")
+        c3.metric("Reazioni fatte", report["all_time"]["reactions_done"], delta=f"{report['today']['reactions']} oggi")
+        c4.metric("Connessioni inviate", report["all_time"]["connections_sent"], delta=f"{report['today']['connections']} oggi")
+
+        st.divider()
+
+        # Limits status
+        st.markdown("#### Limiti giornalieri / settimanali")
+        lim = settings.activity.daily_limits
+        rows = [
+            ("Post questa settimana", report["this_week"]["posts"], lim.posts_per_week),
+            ("Commenti oggi", report["today"]["comments"], lim.comments_per_day),
+            ("Reazioni oggi", report["today"]["reactions"], lim.reactions_per_day),
+            ("Connessioni oggi", report["today"]["connections"], lim.connection_requests_per_day),
+        ]
+        for label, used, limit in rows:
+            pct = min(used / max(limit, 1), 1.0)
+            color = "#e74c3c" if pct >= 0.9 else "#f5a623" if pct >= 0.6 else "#27ae60"
+            st.markdown(f"""
+            <div style='margin-bottom:10px'>
+              <div style='display:flex;justify-content:space-between;font-size:0.88em;margin-bottom:3px'>
+                <span>{label}</span><span style='color:{color}'>{used}/{limit}</span>
+              </div>
+              <div class='score-bar'><div class='score-fill' style='width:{pct*100:.0f}%;background:{color}'></div></div>
+            </div>
+            """, unsafe_allow_html=True)

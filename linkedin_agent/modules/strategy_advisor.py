@@ -193,6 +193,82 @@ class StrategyAdvisor:
             )
 
     # ------------------------------------------------------------------
+    # Profile positioning analysis
+    # ------------------------------------------------------------------
+
+    def analyze_profile_positioning(self) -> dict:
+        """
+        Analyze the user's LinkedIn profile configuration and niche positioning.
+        Returns a dict with scores, strengths, gaps, and concrete recommendations.
+        """
+        s = self._settings
+        niche_keywords = ", ".join(s.niche.primary_keywords[:8])
+        target_titles = ", ".join(s.target_profiles.job_titles[:5])
+        pillars = ", ".join(p.name for p in s.niche.content_pillars)
+        formats = ", ".join(f.name for f in s.niche.content_formats)
+
+        context = (
+            f"Profilo: {s.user.name}\n"
+            f"Headline LinkedIn: {s.user.headline}\n"
+            f"Niche: fondi europei, PNRR, bandi pubblici, terzo settore\n"
+            f"Keyword principali: {niche_keywords}\n"
+            f"Target audience: {target_titles}\n"
+            f"Pilastri di contenuto: {pillars}\n"
+            f"Formati usati: {formats}\n"
+            f"Tono: {s.user.tone}\n"
+        )
+        output_format = (
+            "JSON con questa struttura:\n"
+            "{{\n"
+            '  "positioning_score": 7.5,\n'
+            '  "score_rationale": "Spiegazione del punteggio in 2 frasi",\n'
+            '  "strengths": ["punto di forza 1", "punto di forza 2"],\n'
+            '  "gaps": ["lacuna strategica 1", "lacuna strategica 2"],\n'
+            '  "opportunities": ["opportunità di crescita 1", "opportunità 2"],\n'
+            '  "profile_recommendations": [\n'
+            '    {{"area": "Headline", "issue": "problema attuale", "suggestion": "proposta concreta"}},\n'
+            '    {{"area": "About", "issue": "...", "suggestion": "..."}},\n'
+            '    {{"area": "Featured", "issue": "...", "suggestion": "..."}}\n'
+            '  ],\n'
+            '  "content_recommendations": [\n'
+            '    {{"priority": 1, "action": "azione concreta", "rationale": "perché funziona con evidenza"}},\n'
+            '    {{"priority": 2, "action": "...", "rationale": "..."}},\n'
+            '    {{"priority": 3, "action": "...", "rationale": "..."}}\n'
+            '  ],\n'
+            '  "quick_wins": ["azione rapida da fare oggi 1", "azione rapida 2"]\n'
+            "}}\n"
+            "Basa le raccomandazioni su best practice reali LinkedIn B2B 2024-2025 e specifiche del niche EU funding."
+        )
+        system_prompt = self._prompt_template.format(
+            user_name=s.user.name,
+            user_headline=s.user.headline,
+            context=context,
+            task=(
+                "Analizza il posizionamento LinkedIn di questo professionista nel niche fondi europei/PNRR "
+                "e fornisci raccomandazioni concrete e actionable per migliorare la sua presenza e autorevolezza."
+            ),
+            output_format=output_format,
+        )
+        try:
+            raw = self._claude.generate_with_retry(system_prompt, "Esegui l'analisi del profilo.", max_tokens=1500)
+            text = raw.strip()
+            if text.startswith("```"):
+                lines = text.split("\n")
+                text = "\n".join(lines[1:-1])
+            return json.loads(text)
+        except Exception:
+            return {
+                "positioning_score": 0,
+                "score_rationale": "Analisi non disponibile al momento.",
+                "strengths": [],
+                "gaps": [],
+                "opportunities": [],
+                "profile_recommendations": [],
+                "content_recommendations": [],
+                "quick_wins": [],
+            }
+
+    # ------------------------------------------------------------------
     # Niche benchmarking
     # ------------------------------------------------------------------
 
