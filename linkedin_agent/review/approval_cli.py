@@ -32,7 +32,7 @@ from linkedin_agent.modules.scheduler import DailyPlan
 console = Console()
 
 _HEADER = "[bold cyan]LinkedIn Growth Agent[/bold cyan] — Revisione Giornaliera"
-_MAX_CHAR = 1300
+_MAX_CHAR = 3000
 
 
 class ApprovalCLI:

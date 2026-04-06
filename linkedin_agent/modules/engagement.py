@@ -6,8 +6,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from linkedin_agent.config.settings import Settings
-from linkedin_agent.core.ai_client import AIClient as ClaudeClient
-from linkedin_agent.core.linkedin_client import FeedPost, LinkedInReader
+from linkedin_agent.core.linkedin_client import FeedPost
+from linkedin_agent.core.llm_provider import LLMProvider
+from linkedin_agent.modules.context_collector import ContextPost
 from linkedin_agent.modules.tracker import ActivityTracker, CommentDraft, ReactionItem
 
 _PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
@@ -23,12 +24,12 @@ class EngagementModule:
     def __init__(
         self,
         settings: Settings,
-        claude: ClaudeClient,
-        linkedin: LinkedInReader,
+        llm: LLMProvider,
+        linkedin,
         tracker: ActivityTracker,
     ) -> None:
         self._settings = settings
-        self._claude = claude
+        self._llm = llm
         self._linkedin = linkedin
         self._tracker = tracker
         self._comment_template = (_PROMPTS_DIR / "comment_generation.txt").read_text(encoding="utf-8")
@@ -59,9 +60,31 @@ class EngagementModule:
 
         return filtered[:limit]
 
+    def discover_posts_from_snapshot(self, posts: list[ContextPost], limit: int = 30) -> list[FeedPost]:
+        filtered: list[FeedPost] = []
+        for item in posts:
+            post = FeedPost(
+                urn=item.urn,
+                author_name=item.author_name,
+                author_headline=item.author_headline,
+                text=item.text,
+                reaction_count=item.reaction_count,
+                comment_count=item.comment_count,
+                url=item.url,
+                published_at=item.published_at,
+            )
+            if self._tracker.is_post_seen(post.urn):
+                continue
+            if not post.text or len(post.text) < 30:
+                continue
+            filtered.append(post)
+            if len(filtered) >= limit:
+                break
+        return filtered
+
     def score_post(self, post: FeedPost) -> float:
         """
-        Use Claude to score a post's relevance to the EU funding niche (0.0-1.0).
+        Use the configured LLM to score a post's relevance to the EU funding niche (0.0-1.0).
         Returns 0.0 on error.
         """
         keywords = ", ".join(self._settings.niche.primary_keywords[:8])
@@ -73,7 +96,7 @@ class EngagementModule:
         )
         user = f"POST:\n{post.text[:500]}\n\nAutore headline: {post.author_headline}"
         try:
-            raw = self._claude.generate(system, user, max_tokens=10)
+            raw = self._llm.generate(system, user, max_tokens=10)
             score = float(raw.strip().split()[0])
             return max(0.0, min(1.0, score))
         except (ValueError, IndexError):
@@ -97,7 +120,7 @@ class EngagementModule:
         )
         user_prompt = "Scrivi il commento ora. Solo il testo, nessun prefisso."
 
-        comment_text = self._claude.generate_with_retry(system_prompt, user_prompt, max_tokens=200)
+        comment_text = self._llm.generate_with_retry(system_prompt, user_prompt, max_tokens=200)
 
         return CommentDraft(
             post_urn=post.urn,
@@ -112,7 +135,7 @@ class EngagementModule:
     # Queues
     # ------------------------------------------------------------------
 
-    def get_daily_engagement_queue(self, limit: int | None = None) -> list[CommentDraft]:
+    def get_daily_engagement_queue(self, limit: int | None = None, posts_snapshot: list[ContextPost] | None = None) -> list[CommentDraft]:
         """
         Build the day's comment queue: discover posts, score them, generate comments.
         Respects the daily_limits.comments_per_day config.
@@ -123,7 +146,11 @@ class EngagementModule:
         if remaining <= 0:
             return []
 
-        posts = self.discover_posts(limit=remaining * 3)
+        posts = (
+            self.discover_posts_from_snapshot(posts_snapshot, limit=remaining * 3)
+            if posts_snapshot is not None
+            else self.discover_posts(limit=remaining * 3)
+        )
         scored: list[tuple[float, FeedPost]] = []
         for post in posts:
             score = self.score_post(post)
@@ -142,7 +169,7 @@ class EngagementModule:
 
         return comments
 
-    def get_reaction_queue(self, limit: int | None = None) -> list[ReactionItem]:
+    def get_reaction_queue(self, limit: int | None = None, posts_snapshot: list[ContextPost] | None = None) -> list[ReactionItem]:
         """
         Build the day's reaction queue: posts to "consiglia" (like) or "diffondi" (repost).
         Reposting is reserved for very high relevance posts (score >= 0.8).
@@ -153,7 +180,11 @@ class EngagementModule:
         if remaining <= 0:
             return []
 
-        posts = self.discover_posts(limit=remaining * 2)
+        posts = (
+            self.discover_posts_from_snapshot(posts_snapshot, limit=remaining * 2)
+            if posts_snapshot is not None
+            else self.discover_posts(limit=remaining * 2)
+        )
         reactions: list[ReactionItem] = []
 
         for post in posts[:remaining]:

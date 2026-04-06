@@ -27,14 +27,16 @@ from rich.table import Table
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from linkedin_agent.automation.browser import BrowserSession
+from linkedin_agent.automation.browser_reader import BrowserLinkedInReader
 from linkedin_agent.automation.comment_publisher import CommentPublisher
 from linkedin_agent.automation.post_publisher import PostPublisher
 from linkedin_agent.automation.reaction_publisher import ReactionPublisher
 from linkedin_agent.config.settings import load_settings
-from linkedin_agent.core.ai_client import AIClient as ClaudeClient
-from linkedin_agent.core.linkedin_client import LinkedInReader
+from linkedin_agent.core.provider_factory import create_llm_provider
+from linkedin_agent.modules.context_collector import ContextCollector
 from linkedin_agent.modules.content_generator import ContentGenerator
 from linkedin_agent.modules.engagement import EngagementModule
+from linkedin_agent.modules.knowledge_store import SectorKnowledgeStore
 from linkedin_agent.modules.network import NetworkModule
 from linkedin_agent.modules.scheduler import DailyScheduler
 from linkedin_agent.modules.strategy_advisor import StrategyAdvisor
@@ -54,25 +56,28 @@ def main(dry_run: bool = False, plan_only: bool = False) -> None:
     # -- Initialize core components --
     tracker = ActivityTracker(db_path)
     tracker.init_db()
+    knowledge_store = SectorKnowledgeStore(db_path)
+    knowledge_store.init_db()
 
-    claude = ClaudeClient(api_key=settings.gemini_api_key)
-    content_gen = ContentGenerator(settings, claude)
-    advisor = StrategyAdvisor(settings, claude, tracker)
+    llm = create_llm_provider(settings)
+    content_gen = ContentGenerator(settings, llm, tracker)
+    advisor = StrategyAdvisor(settings, llm, tracker)
 
+    context_collector = None
     if dry_run:
-        linkedin_reader = None
         engagement = None
         network = None
     else:
-        try:
-            linkedin_reader = LinkedInReader(settings.linkedin_email, settings.linkedin_password, li_at=settings.linkedin_li_at)
-            engagement = EngagementModule(settings, claude, linkedin_reader, tracker)
-            network = NetworkModule(settings, claude, linkedin_reader, tracker)
-        except Exception as e:
-            console.print(f"[yellow]⚠ Login LinkedIn non riuscito: {e}[/yellow]")
-            console.print("[yellow]  Continuo in modalità solo-contenuto (senza feed reale).[/yellow]")
-            console.print("[dim]  Suggerimento: accedi a LinkedIn dal browser una volta, poi riprova.[/dim]")
-            linkedin_reader = None
+        browser_ok, browser_detail = BrowserSession.probe_saved_session(settings)
+        if browser_ok:
+            console.print(f"[cyan]Sessione browser LinkedIn valida.[/cyan] [dim]{browser_detail}[/dim]")
+            reader = BrowserLinkedInReader(settings)
+            engagement = EngagementModule(settings, llm, reader, tracker)
+            network = NetworkModule(settings, llm, reader, tracker)
+            context_collector = ContextCollector(settings, tracker, reader)
+        else:
+            console.print("[yellow]LinkedIn non autenticato via browser.[/yellow]")
+            console.print("[dim]Accedi dal launcher o salva una sessione browser prima di eseguire il piano.[/dim]")
             engagement = None
             network = None
 
@@ -83,18 +88,47 @@ def main(dry_run: bool = False, plan_only: bool = False) -> None:
         content_gen=content_gen,
         engagement=engagement or _StubEngagement(),
         network=network or _StubNetwork(),
+        context_collector=context_collector,
+        knowledge_store=knowledge_store,
     )
 
     # -- Build daily plan --
     console.print("[dim]Costruzione del piano giornaliero...[/dim]")
-    plan = scheduler.build_daily_plan(dry_run=dry_run)
+    try:
+        plan = scheduler.build_daily_plan(dry_run=dry_run)
+    except Exception as e:
+        console.print(f"[red]{llm.describe_error(e, llm.model_name)}[/red]")
+        return
 
-    if not plan.post_draft and not plan.comments and not plan.reactions and not plan.connections:
+    if (
+        not plan.post_draft
+        and not plan.comments
+        and not plan.reactions
+        and not plan.connections
+        and not plan.post_slot_available
+    ):
         console.print("[yellow]Nessuna attività pianificata per oggi.[/yellow]")
         if plan.notes:
             for note in plan.notes:
                 console.print(f"  [dim]{note}[/dim]")
         return
+
+    if (
+        not dry_run
+        and plan.context_snapshot
+        and plan.context_snapshot.status == "sufficient"
+        and plan.post_slot_available
+        and plan.content_brief
+    ):
+        post_result = content_gen.generate_post_draft(snapshot=plan.context_snapshot, brief=plan.content_brief)
+        if post_result.is_ok:
+            plan.post_draft = post_result.draft
+            console.print("[green]Post generato e pronto per revisione.[/green]")
+        else:
+            plan.notes.append(f"Generazione post non riuscita: {post_result.error_message}")
+            console.print(f"[yellow]{post_result.error_message}[/yellow]")
+    elif plan.post_slot_available and not plan.content_brief:
+        console.print("[yellow]Nessun content brief disponibile: la knowledge base non e' ancora abbastanza ricca.[/yellow]")
 
     # -- Human review --
     cli = ApprovalCLI(tracker=tracker, content_gen=content_gen, advisor=advisor)

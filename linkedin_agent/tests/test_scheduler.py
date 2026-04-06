@@ -88,8 +88,8 @@ def test_dry_run_plan():
 
     plan = scheduler.build_daily_plan(dry_run=True)
 
-    assert plan.post_draft is not None
-    assert plan.post_draft.content
+    assert plan.post_draft is None
+    assert plan.post_slot_available
     assert len(plan.comments) > 0
     assert len(plan.reactions) > 0
     assert len(plan.connections) > 0

@@ -16,7 +16,7 @@ from rich.rule import Rule
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from linkedin_agent.config.settings import load_settings
-from linkedin_agent.core.ai_client import AIClient as ClaudeClient
+from linkedin_agent.core.provider_factory import create_llm_provider
 from linkedin_agent.modules.content_generator import ContentGenerator
 from linkedin_agent.modules.scheduler import DailyPlan
 from linkedin_agent.modules.strategy_advisor import StrategyAdvisor
@@ -51,9 +51,9 @@ def main() -> None:
         f"{len(reactions)} reazioni, {len(connections)} connessioni[/dim]\n"
     )
 
-    claude = ClaudeClient(api_key=settings.gemini_api_key)
-    content_gen = ContentGenerator(settings, claude)
-    advisor = StrategyAdvisor(settings, claude, tracker)
+    llm = create_llm_provider(settings)
+    content_gen = ContentGenerator(settings, llm)
+    advisor = StrategyAdvisor(settings, llm, tracker)
     cli = ApprovalCLI(tracker=tracker, content_gen=content_gen, advisor=advisor)
 
     from datetime import date

@@ -25,8 +25,9 @@ class BrowserSession:
     Subsequent runs reuse saved cookies/localStorage.
     """
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, headless_override: Optional[bool] = None) -> None:
         self._settings = settings
+        self._headless_override = headless_override
         self._session_path = settings.data_dir / _SESSION_FILE
         self._playwright: Optional[Playwright] = None
         self._browser: Optional[Browser] = None
@@ -49,9 +50,9 @@ class BrowserSession:
     # Session lifecycle
     # ------------------------------------------------------------------
 
-    def start(self) -> None:
+    def start(self, prompt_for_login: bool = True) -> None:
         self._playwright = sync_playwright().start()
-        headless = self._settings.safety.headless_browser
+        headless = self._headless_override if self._headless_override is not None else self._settings.safety.headless_browser
         self._browser = self._playwright.chromium.launch(headless=headless)
 
         if self._session_path.exists():
@@ -64,7 +65,10 @@ class BrowserSession:
         self._action_count = 0
 
         if not self._is_logged_in():
-            self._handle_login()
+            if prompt_for_login:
+                self._handle_login()
+            else:
+                self._page.goto(f"{LINKEDIN_BASE}/login")
 
     def stop(self) -> None:
         if self._context:
@@ -99,6 +103,60 @@ class BrowserSession:
         self._session_path.parent.mkdir(parents=True, exist_ok=True)
         storage = self._context.storage_state()
         self._session_path.write_text(json.dumps(storage))
+
+    def open_manual_login(self) -> None:
+        """
+        Open a visible browser and navigate to LinkedIn login without blocking on
+        terminal input. Useful for GUI launchers.
+        """
+        self.start(prompt_for_login=False)
+
+    def is_logged_in(self) -> bool:
+        return self._is_logged_in()
+
+    def finalize_manual_login(self) -> bool:
+        """
+        Save the session if the browser is currently authenticated.
+        Returns True if login was detected and saved.
+        """
+        if not self._page:
+            return False
+        if not self._is_logged_in():
+            return False
+        self._save_session()
+        return True
+
+    @classmethod
+    def probe_saved_session(cls, settings: Settings) -> tuple[bool, str]:
+        """
+        Non-interactive check used by the Streamlit UI.
+        It verifies whether a previously saved Playwright session can still
+        reach the LinkedIn feed without opening the manual-login flow.
+        """
+        session_path = settings.data_dir / _SESSION_FILE
+        if not session_path.exists():
+            return False, "Nessuna sessione browser salvata trovata."
+
+        playwright = browser = context = page = None
+        try:
+            playwright = sync_playwright().start()
+            browser = playwright.chromium.launch(headless=True)
+            storage = json.loads(session_path.read_text())
+            context = browser.new_context(storage_state=storage)
+            page = context.new_page()
+            page.goto(f"{LINKEDIN_BASE}/feed/", timeout=15000)
+            if "feed" in page.url:
+                return True, "Sessione browser LinkedIn valida via Playwright."
+            return False, f"Sessione browser non autenticata. URL corrente: {page.url}"
+        except Exception as e:
+            return False, f"Probe sessione browser fallita: {e}"
+        finally:
+            if context:
+                context.close()
+            if browser:
+                browser.close()
+            if playwright:
+                playwright.stop()
 
     # ------------------------------------------------------------------
     # Page access

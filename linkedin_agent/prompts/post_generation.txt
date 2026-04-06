@@ -17,17 +17,36 @@ STRUTTURA OBBLIGATORIA:
 1. HOOK (prima riga): afferma un dato, un fatto contro-intuitivo, o il problema che risolverai — deve catturare in 10 parole max
 2. CORPO: sviluppo pratico e azionabile (liste numerate quando utile, max 5 bullet)
 3. CTA: chiudi con una domanda al lettore OPPURE una call-to-action concreta (es. "Salva questo post", "Commenta se vuoi il template")
-4. HASHTAG: 5-7 hashtag pertinenti su righe separate alla fine
+4. HASHTAG: 3-5 hashtag pertinenti su righe separate alla fine
 
 VINCOLI TECNICI:
-- Max 1300 caratteri totali (spazi inclusi)
+- Max 3000 caratteri totali (spazi inclusi)
+- Target ideale: 1500-2200 caratteri
 - NO trattini em (—) nel corpo
 - NO "ottimo", "interessante", "incredibile" come aggettivi
 - NO frasi di apertura in prima persona tipo "Oggi voglio parlarvi di..."
 - I numeri nel hook aumentano il click-through (es. "3 errori", "5 passi", "€2,4 miliardi")
+- NON essere generico: evita aperture astratte come "trovare il bando giusto" se puoi nominare un problema piu' concreto
+- Inserisci almeno 1 dettaglio specifico preso dal contesto reale raccolto oggi (errore tipico, attore, documento, requisito, fase del processo, ecc.)
+- Ogni punto deve aiutare il lettore a capire cosa fare davvero, non solo cosa evitare
+- Preferisci paragrafi brevi e leggibili invece di un blocco unico
 
-RISPOSTA IN JSON con questa struttura esatta:
-{{
-  "content": "testo completo del post senza hashtag",
-  "hashtags": ["#tag1", "#tag2", ...]
-}}
+RISPOSTA SOLO in questo formato testuale esatto, senza JSON e senza markdown:
+CONTENT:
+testo completo del post senza hashtag
+
+HASHTAGS:
+#tag1
+#tag2
+#tag3
+
+RATIONALE:
+Spiega in 2-4 frasi perché questo post nasce dal contesto raccolto oggi
+
+PATTERN:
+Pattern o angolo scelto a partire dai dati osservati
+
+SOURCES:
+- fonte 1 usata
+- fonte 2 usata
+- fonte 3 usata

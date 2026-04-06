@@ -100,7 +100,11 @@ class Settings:
     safety: SafetyConfig
 
     # Secrets (from .env)
+    llm_provider: str = "claude"
+    anthropic_api_key: str = field(default="", repr=False)
+    anthropic_model: str = field(default="", repr=False)
     gemini_api_key: str = field(default="", repr=False)
+    gemini_model: str = field(default="", repr=False)
     linkedin_email: str = field(default="", repr=False)
     linkedin_password: str = field(default="", repr=False)
     linkedin_li_at: str = field(default="", repr=False)  # Cookie li_at (bypasses CHALLENGE)
@@ -113,7 +117,7 @@ class Settings:
 # Loader
 # ---------------------------------------------------------------------------
 
-def load_settings(config_path: Path = _CONFIG_PATH) -> Settings:
+def load_settings(config_path: Path = _CONFIG_PATH, validate_llm: bool = True) -> Settings:
     load_dotenv(_ENV_PATH)
 
     with open(config_path, "r", encoding="utf-8") as f:
@@ -177,19 +181,30 @@ def load_settings(config_path: Path = _CONFIG_PATH) -> Settings:
     )
 
     # Load secrets from environment
+    settings.llm_provider = os.environ.get("LLM_PROVIDER", "claude").strip().lower() or "claude"
+    settings.anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    settings.anthropic_model = os.environ.get("ANTHROPIC_MODEL", "")
     settings.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
+    settings.gemini_model = os.environ.get("GEMINI_MODEL", "")
     settings.linkedin_email = os.environ.get("LINKEDIN_EMAIL", "")
     settings.linkedin_password = os.environ.get("LINKEDIN_PASSWORD", "")
     settings.linkedin_li_at = os.environ.get("LINKEDIN_LI_AT", "")
 
-    _validate(settings)
+    _validate(settings, validate_llm=validate_llm)
     return settings
 
 
-def _validate(s: Settings) -> None:
+def _validate(s: Settings, validate_llm: bool = True) -> None:
     errors: list[str] = []
-    if not s.gemini_api_key:
-        errors.append("GEMINI_API_KEY not set in .env (get it free at https://aistudio.google.com)")
+    if validate_llm:
+        if s.llm_provider == "claude":
+            if not s.anthropic_api_key:
+                errors.append("ANTHROPIC_API_KEY not set in .env")
+        elif s.llm_provider == "gemini":
+            if not s.gemini_api_key:
+                errors.append("GEMINI_API_KEY not set in .env (legacy provider)")
+        else:
+            errors.append(f"LLM_PROVIDER unsupported: {s.llm_provider}")
     if not s.linkedin_email:
         errors.append("LINKEDIN_EMAIL not set in .env")
     if not s.linkedin_password:

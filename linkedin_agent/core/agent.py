@@ -6,7 +6,7 @@ Used by the scripts as a convenient facade.
 from __future__ import annotations
 
 from linkedin_agent.config.settings import Settings, load_settings
-from linkedin_agent.core.ai_client import AIClient as ClaudeClient
+from linkedin_agent.core.provider_factory import create_llm_provider
 from linkedin_agent.core.linkedin_client import LinkedInReader
 from linkedin_agent.modules.content_generator import ContentGenerator
 from linkedin_agent.modules.engagement import EngagementModule
@@ -28,13 +28,13 @@ class Agent:
         self.tracker = ActivityTracker(db_path)
         self.tracker.init_db()
 
-        self.claude = ClaudeClient(api_key=settings.gemini_api_key)
+        self.llm = create_llm_provider(settings)
         self.linkedin = LinkedInReader(settings.linkedin_email, settings.linkedin_password)
 
-        self.content_gen = ContentGenerator(settings, self.claude)
-        self.engagement = EngagementModule(settings, self.claude, self.linkedin, self.tracker)
-        self.network = NetworkModule(settings, self.claude, self.linkedin, self.tracker)
-        self.advisor = StrategyAdvisor(settings, self.claude, self.tracker)
+        self.content_gen = ContentGenerator(settings, self.llm)
+        self.engagement = EngagementModule(settings, self.llm, self.linkedin, self.tracker)
+        self.network = NetworkModule(settings, self.llm, self.linkedin, self.tracker)
+        self.advisor = StrategyAdvisor(settings, self.llm, self.tracker)
         self.scheduler = DailyScheduler(
             settings=settings,
             tracker=self.tracker,

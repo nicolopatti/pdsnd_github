@@ -49,11 +49,42 @@ class LinkedInReader:
     """
 
     def __init__(self, email: str, password: str, li_at: str = "") -> None:
+        self._auth_mode = "credentials"
+        self._last_error = ""
+
         if li_at:
-            # Cookie-based auth bypasses LinkedIn's CHALLENGE security check
-            self._api = Linkedin(email, password, cookies={"li_at": li_at})
-        else:
+            try:
+                # Cookie-based auth bypasses LinkedIn's CHALLENGE security check
+                self._api = Linkedin(email, password, cookies={"li_at": li_at})
+                self._auth_mode = "li_at_cookie"
+                return
+            except Exception as e:
+                self._last_error = str(e)
+
+        try:
             self._api = Linkedin(email, password)
+            self._auth_mode = "credentials"
+        except Exception as e:
+            detail = f"Cookie li_at non accettato ({self._last_error}). " if self._last_error else ""
+            raise RuntimeError(
+                detail
+                + f"Login LinkedIn read-only non riuscito: {e}"
+            ) from e
+
+    @property
+    def auth_mode(self) -> str:
+        return self._auth_mode
+
+    def probe_connection(self) -> tuple[bool, str]:
+        """
+        Lightweight connectivity test used by the UI to show whether the
+        read-only LinkedIn client is actually working.
+        """
+        try:
+            self._api.search_people(keywords="project manager", limit=1)
+            return True, f"Accesso read-only riuscito via `{self._auth_mode}`."
+        except Exception as e:
+            return False, f"Accesso LinkedIn read-only fallito: {e}"
 
     # ------------------------------------------------------------------
     # Feed / Post discovery

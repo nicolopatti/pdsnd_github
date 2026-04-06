@@ -74,3 +74,22 @@ def test_progress_report():
     assert "all_time" in report
     assert "today" in report
     assert "this_week" in report
+
+
+def test_post_generation_run_logging():
+    tracker = make_tracker()
+    run_id = tracker.log_post_generation_run(
+        snapshot_id=12,
+        model="gemini-test",
+        status="invalid_ai_output",
+        error_message="Bad JSON",
+        raw_excerpt="{",
+        validation_errors=["Missing content"],
+    )
+    assert run_id is not None
+
+    latest = tracker.get_latest_post_generation_run()
+    assert latest is not None
+    assert latest["status"] == "invalid_ai_output"
+    assert latest["model"] == "gemini-test"
+    assert latest["validation_errors"] == ["Missing content"]

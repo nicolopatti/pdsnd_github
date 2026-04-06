@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Optional
 
 from linkedin_agent.config.settings import Settings
-from linkedin_agent.core.ai_client import AIClient as ClaudeClient
+from linkedin_agent.core.llm_provider import LLMProvider
+from linkedin_agent.modules.context_collector import ContextSnapshot
 from linkedin_agent.modules.tracker import ActivityTracker, PostDraft
 
 _PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
@@ -47,11 +48,11 @@ class StrategyAdvisor:
     def __init__(
         self,
         settings: Settings,
-        claude: ClaudeClient,
+        llm: LLMProvider,
         tracker: ActivityTracker,
     ) -> None:
         self._settings = settings
-        self._claude = claude
+        self._llm = llm
         self._tracker = tracker
         self._prompt_template = (_PROMPTS_DIR / "strategy_advisor.txt").read_text(encoding="utf-8")
 
@@ -92,12 +93,8 @@ class StrategyAdvisor:
         user_prompt = "Analizza il post e fornisci il feedback in JSON."
 
         try:
-            raw = self._claude.generate(system_prompt, user_prompt, max_tokens=600)
-            text = raw.strip()
-            if text.startswith("```"):
-                lines = text.split("\n")
-                text = "\n".join(lines[1:-1])
-            data = json.loads(text)
+            raw = self._llm.generate(system_prompt, user_prompt, max_tokens=600)
+            data = self._llm.parse_json_response_safe(raw)
             return StyleFeedback(
                 value_score=float(data.get("value_score", 5.0)),
                 authority_score=float(data.get("authority_score", 5.0)),
@@ -168,12 +165,8 @@ class StrategyAdvisor:
         user_prompt = "Genera il briefing strategico in JSON."
 
         try:
-            raw = self._claude.generate_with_retry(system_prompt, user_prompt, max_tokens=1200)
-            text = raw.strip()
-            if text.startswith("```"):
-                lines = text.split("\n")
-                text = "\n".join(lines[1:-1])
-            data = json.loads(text)
+            raw = self._llm.generate_with_retry(system_prompt, user_prompt, max_tokens=1200)
+            data = self._llm.parse_json_response_safe(raw)
             return WeeklyStrategyBrief(
                 week_summary=data.get("week_summary", ""),
                 what_worked=[PerformanceInsight(**i) for i in data.get("what_worked", [])],
@@ -196,7 +189,7 @@ class StrategyAdvisor:
     # Profile positioning analysis
     # ------------------------------------------------------------------
 
-    def analyze_profile_positioning(self) -> dict:
+    def analyze_profile_positioning(self, snapshot: ContextSnapshot | None = None) -> dict:
         """
         Analyze the user's LinkedIn profile configuration and niche positioning.
         Returns a dict with scores, strengths, gaps, and concrete recommendations.
@@ -207,16 +200,41 @@ class StrategyAdvisor:
         pillars = ", ".join(p.name for p in s.niche.content_pillars)
         formats = ", ".join(f.name for f in s.niche.content_formats)
 
-        context = (
-            f"Profilo: {s.user.name}\n"
-            f"Headline LinkedIn: {s.user.headline}\n"
-            f"Niche: fondi europei, PNRR, bandi pubblici, terzo settore\n"
-            f"Keyword principali: {niche_keywords}\n"
-            f"Target audience: {target_titles}\n"
-            f"Pilastri di contenuto: {pillars}\n"
-            f"Formati usati: {formats}\n"
-            f"Tono: {s.user.tone}\n"
-        )
+        profile_lines = [
+            f"Profilo configurato: {s.user.name}",
+            f"Headline configurata: {s.user.headline}",
+            f"Niche: fondi europei, PNRR, bandi pubblici, terzo settore",
+            f"Keyword principali: {niche_keywords}",
+            f"Target audience: {target_titles}",
+            f"Pilastri di contenuto: {pillars}",
+            f"Formati usati: {formats}",
+            f"Tono: {s.user.tone}",
+        ]
+        if snapshot and snapshot.profile_snapshot:
+            profile_lines.extend(
+                [
+                    f"Profilo reale letto da LinkedIn: {snapshot.profile_snapshot.full_name}",
+                    f"Headline reale: {snapshot.profile_snapshot.headline}",
+                    f"About reale: {snapshot.profile_snapshot.about[:500]}",
+                    f"Featured: {' | '.join(snapshot.profile_snapshot.featured_items[:3])}",
+                    f"Experience: {' | '.join(snapshot.profile_snapshot.experience_items[:3])}",
+                ]
+            )
+        if snapshot and snapshot.recent_posts_snapshot:
+            profile_lines.append("Post recenti del profilo:")
+            for post in snapshot.recent_posts_snapshot[:4]:
+                profile_lines.append(f"- {post.text[:250]}")
+        if snapshot and snapshot.niche_posts_snapshot:
+            profile_lines.append("Benchmark post del settore:")
+            for post in snapshot.niche_posts_snapshot[:4]:
+                profile_lines.append(
+                    f"- {post.author_name}: {post.text[:220]} (reazioni {post.reaction_count}, commenti {post.comment_count})"
+                )
+        if snapshot and snapshot.niche_profiles_snapshot:
+            profile_lines.append("Profili settore osservati:")
+            for profile in snapshot.niche_profiles_snapshot[:4]:
+                profile_lines.append(f"- {profile.full_name}: {profile.headline}")
+        context = "\n".join(profile_lines)
         output_format = (
             "JSON con questa struttura:\n"
             "{{\n"
@@ -250,22 +268,40 @@ class StrategyAdvisor:
             output_format=output_format,
         )
         try:
-            raw = self._claude.generate_with_retry(system_prompt, "Esegui l'analisi del profilo.", max_tokens=1500)
-            text = raw.strip()
-            if text.startswith("```"):
-                lines = text.split("\n")
-                text = "\n".join(lines[1:-1])
-            return json.loads(text)
+            raw = self._llm.generate_with_retry(system_prompt, "Esegui l'analisi del profilo.", max_tokens=1500)
+            data = self._llm.parse_json_response_safe(raw)
+            if not data:
+                raise RuntimeError("Il provider LLM non ha restituito un JSON valido per l'analisi profilo.")
+            if snapshot:
+                data["analysis_scope"] = {
+                    "own_posts_count": snapshot.own_posts_count,
+                    "niche_posts_count": snapshot.niche_posts_count,
+                    "niche_profiles_count": snapshot.niche_profiles_count,
+                    "status": snapshot.status,
+                }
+                data["context_evidence"] = [
+                    f"Profilo reale letto: {bool(snapshot.profile_snapshot)}",
+                    f"Post recenti letti: {snapshot.own_posts_count}",
+                    f"Post settore letti: {snapshot.niche_posts_count}",
+                    f"Profili settore letti: {snapshot.niche_profiles_count}",
+                ]
+            return data
         except Exception:
             return {
                 "positioning_score": 0,
-                "score_rationale": "Analisi non disponibile al momento.",
+                "score_rationale": "Analisi non disponibile o risposta AI non valida.",
                 "strengths": [],
                 "gaps": [],
                 "opportunities": [],
                 "profile_recommendations": [],
                 "content_recommendations": [],
                 "quick_wins": [],
+                "context_evidence": [
+                    f"Profilo reale letto: {bool(snapshot.profile_snapshot) if snapshot else False}",
+                    f"Post recenti letti: {snapshot.own_posts_count if snapshot else 0}",
+                    f"Post settore letti: {snapshot.niche_posts_count if snapshot else 0}",
+                    f"Profili settore letti: {snapshot.niche_profiles_count if snapshot else 0}",
+                ] if snapshot else [],
             }
 
     # ------------------------------------------------------------------

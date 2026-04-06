@@ -1,0 +1,263 @@
+{
+  "name": "generate_daily_brief",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "cd {{$env.LINKEDIN_AGENT_PROJECT_ROOT || $env.PROJECT_ROOT || \"/Users/nicolopatti/pdsnd_github/pdsnd_github\"}} && python -m linkedin_agent.scripts.build_daily_brief"
+      },
+      "id": "execute-cli",
+      "name": "Execute CLI",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = ($json.stdout || '').trim();\nif (!raw) {\n  throw new Error('Lo stdout JSON del job generate_daily_brief e vuoto.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (error) {\n  throw new Error(`Impossibile fare parse dello stdout JSON: ${error.message}`);\n}\nreturn [{ json: { ...parsed, exitCode: $json.exitCode, stderr: $json.stderr || '' } }];"
+      },
+      "id": "parse-result",
+      "name": "Parse Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.exitCode}}",
+                    "rightValue": 0,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equal"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.exitCode}}",
+                    "rightValue": 1,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equal"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.exitCode}}",
+                    "rightValue": 2,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equal"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        }
+      },
+      "id": "route-exit-code",
+      "name": "Route Exit Code",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1020,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "workflow_status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "name": "summary",
+              "value": "={{$json.summary}}",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "success",
+      "name": "Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        1280,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "workflow_status",
+              "value": "recoverable_error",
+              "type": "string"
+            },
+            {
+              "name": "error",
+              "value": "={{$json.error}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "recoverable",
+      "name": "Recoverable Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        1280,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "workflow_status",
+              "value": "critical_error",
+              "type": "string"
+            },
+            {
+              "name": "error",
+              "value": "={{$json.error}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "critical",
+      "name": "Critical Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        1280,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Execute CLI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute CLI": {
+      "main": [
+        [
+          {
+            "node": "Parse Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Result": {
+      "main": [
+        [
+          {
+            "node": "Route Exit Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Exit Code": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recoverable Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Critical Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "pinData": {},
+  "versionId": "generate-daily-brief-v1"
+}
